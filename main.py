@@ -47,7 +47,6 @@ def generate_sts_pair(row, text_input):
         f"Do not include any conversational text, explanations, or markdown code blocks. "
         f"The JSON must follow this schema: "
         "{"
-        '  "input_sentence": <input>,'
         '  "output_sentence": <output>'
         "}"
     )
@@ -72,13 +71,18 @@ def generate_sts_pair(row, text_input):
         # Add prompt metadata to the result
         parsed_result['prompt_type'] = prompt_type
         parsed_result['prompt_instruction'] = prompt_instruction
+        parsed_result['input_sentence'] = text_input
+        
+        # Extract token usage
+        input_tokens = response.usage.prompt_tokens
+        output_tokens = response.usage.completion_tokens
         
         logger.info(f"OUTPUT={parsed_result.get('output_sentence', '')[:100]}...")
-        return parsed_result
+        return parsed_result, input_tokens, output_tokens
     
     except Exception as e:
         logger.error(f"ERROR={e}")
-        return None
+        return None, 0, 0
 
 # Load input sentences from gzipped CSV files (first sentence from each Body)
 results_database = []
@@ -92,6 +96,10 @@ sentences = extract_random_sentences_from_gzipped_csv(
 
 logger.info(f"Starting STS generation | SENTENCES={args.num_sentences} | FILE_FILTER={args.filename_filter}")
 
+# Token tracking
+total_input_tokens = 0
+total_output_tokens = 0
+
 # Process each sentence
 for idx, input_sentence in enumerate(sentences, 1):
     logger.info(f"--- Processing {idx}/{len(sentences)} ---")
@@ -102,7 +110,10 @@ for idx, input_sentence in enumerate(sentences, 1):
     else:
         row = hard_negative_prompts.sample(1).iloc[0]
     
-    output = generate_sts_pair(row, input_sentence)
+    output, input_tokens, output_tokens = generate_sts_pair(row, input_sentence)
+    total_input_tokens += input_tokens
+    total_output_tokens += output_tokens
+    
     if output:
         results_database.append(output)
 
@@ -112,3 +123,4 @@ with open('sts_database.jsonl', 'w') as f:
         f.write(json.dumps(entry) + '\n')
 
 logger.info(f"Database generation complete | TOTAL_ENTRIES={len(results_database)} | OUTPUT_FILE=sts_database.jsonl")
+logger.info(f"Token usage | INPUT_TOKENS={total_input_tokens} | OUTPUT_TOKENS={total_output_tokens} | TOTAL_TOKENS={total_input_tokens + total_output_tokens}")
