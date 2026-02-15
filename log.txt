@@ -1,0 +1,2 @@
+Found 1 matching gzipped files
+Processing file: /Users/tobiasleitner/Desktop/cleaned_data/news_data_CRSP_2000_clean.csv.gz

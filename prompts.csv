@@ -1,0 +1,21 @@
+﻿Prompt type;Prompt;Source
+Positive;Please paraphrase the input sentence or phrase, providing an alternative expression with the same meaning.;SynCSE
+Positive;Rewrite the following sentence or phrase using different words and sentence structure while preserving its original meaning.;SynCSE
+Positive;Create a sentence or phrase that is also true, assuming the provided input sentence or phrase is true.;SynCSE
+Positive;Please provide a concise paraphrase of the input sentence or phrase, maintaining the core meaning while altering the words and sentence structure. Feel free to omit some of the non-essential details like adjectives or adverbs.;SynCSE
+Hard negative;Revise the provided sentence by swapping, changing, or contradicting some details in order to express a different meaning, while maintaining the general context and structure.;SynCSE
+Hard negative;Generate a slightly modified version of the provided sentence to express an opposing or alternate meaning by changing one or two specific elements, while maintaining the overall context and sentence structure.;SynCSE
+Hard negative;Transform the input sentence by adjusting, altering, or contradicting its original meaning to create a logical and sensible output sentence with a different meaning from the input sentence.;SynCSE
+Hard negative;Generate a sentence that conveys a altering, contrasting or opposite idea to the given input sentence, while ensuring the new sentence is logical, realistic, and grounded in common sense.;SynCSE
+Positive;Summarize the input sentence in seven words. ;SumCSE
+Positive;Create a sentence or phrase that is also true, assuming the provided input sentence or phrase is true.;SumCSE
+Positive;Rewrite the input sentence or phrase using different sentence structure and different words while preserving its original meaning.;SumCSE
+Positive;Paraphrase the input sentence or phrase, providing an alternative expression with the same meaning.;SumCSE
+Positive;Provide a concise paraphrase of the input sentence or phrase, maintaining the core meaning while altering the words and sentence structure. Feel free to omit some of the non-essential details like adjectives or adverbs. ;SumCSE
+Hard negative;Revise the provided sentence by swapping, changing, or contradicting some details in order to express a different meaning, while maintaining the general context and structure.;SumCSE
+Hard negative;Generate a slightly modified version of the provided sentence to express an opposing or alternate meaning by changing one or two specific elements, while maintaining the overall context and sentence structure.;SumCSE
+Hard negative;Transform the input sentence by adjusting, altering, or contradicting its original meaning to create a logical and sensible output sentence with a different meaning from the input sentence.;SumCSE
+Hard negative;Generate a sentence that conveys a altering, contrasting or opposite idea to the given input sentence, while ensuring the new sentence is logical, realistic, and grounded in common sense.;SumCSE
+Positive;1) Answer objectively what you know about the input sentence. 2) Make sure your answers are no more than four sentences and contain important information.;SKICSE
+Positive;Write one sentence that is logically entailed by the input sentence in the form of a statement.;AutoNLI
+Hard negative;Write one sentence that logically contradicts in the form of a statement.;AutoNLI
