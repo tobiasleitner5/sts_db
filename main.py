@@ -40,7 +40,6 @@ def generate_sts_pair(row, text_input):
     prompt_instruction = row['Prompt']
     prompt_type = row['Prompt type']
 
-    # Your strategy: System Prompt + Instructions
     system_content = (
         f"System Prompt: {prompt_instruction} "
         f"Your output must always be a valid JSON object. "
@@ -56,7 +55,7 @@ def generate_sts_pair(row, text_input):
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": system_content},
                 {"role": "user", "content": text_input}
@@ -117,7 +116,7 @@ for idx, input_sentence in enumerate(sentences, 1):
     if output:
         results_database.append(output)
 
-# Save your new database
+# Save database
 with open('sts_database.jsonl', 'w') as f:
     for entry in results_database:
         f.write(json.dumps(entry) + '\n')
