@@ -4,6 +4,7 @@ import logging
 import argparse
 from openai import OpenAI
 from utils import extract_random_sentences_from_gzipped_csv
+from system_prompt import get_system_prompt
 
 # Configure logging
 logging.basicConfig(
@@ -40,24 +41,15 @@ hard_negative_prompts = df[df['Prompt type'] == 'Hard negative']
 def create_batch_request(custom_id, row, text_input):
     """Create a single batch request entry."""
     prompt_instruction = row['Prompt']
-    prompt_type = row['Prompt type']
     
-    system_content = (
-        f"System Prompt: {prompt_instruction} "
-        f"Your output must always be a valid JSON object. "
-        f"Do not include any conversational text, explanations, or markdown code blocks. "
-        f"The JSON must follow this schema: "
-        "{"
-        '  "output_sentence": <output>'
-        "}"
-    )
+    system_content = get_system_prompt(prompt_instruction)
     
     return {
         "custom_id": custom_id,
         "method": "POST",
         "url": "/v1/chat/completions",
         "body": {
-            "model": "gpt-4o",
+            "model": "gpt-4o-mini",
             "messages": [
                 {"role": "system", "content": system_content},
                 {"role": "user", "content": text_input}

@@ -4,6 +4,7 @@ import logging
 import argparse
 from openai import OpenAI
 from utils import extract_random_sentences_from_gzipped_csv
+from system_prompt import get_system_prompt
 
 # Configure logging
 logging.basicConfig(
@@ -40,15 +41,7 @@ def generate_sts_pair(row, text_input):
     prompt_instruction = row['Prompt']
     prompt_type = row['Prompt type']
 
-    system_content = (
-        f"System Prompt: {prompt_instruction} "
-        f"Your output must always be a valid JSON object. "
-        f"Do not include any conversational text, explanations, or markdown code blocks. "
-        f"The JSON must follow this schema: "
-        "{"
-        '  "output_sentence": <output>'
-        "}"
-    )
+    system_content = get_system_prompt(prompt_instruction)
 
     logger.info(f"PROMPT_TYPE={prompt_type} | INSTRUCTION={prompt_instruction[:80]}...")
     logger.info(f"INPUT={text_input[:100]}...")
