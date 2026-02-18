@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import json
 import logging
@@ -6,13 +7,17 @@ from openai import OpenAI
 from utils import extract_random_sentences_from_gzipped_csv
 from system_prompt import get_system_prompt
 
+# Create output directories
+os.makedirs('logs', exist_ok=True)
+os.makedirs('output', exist_ok=True)
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s | %(levelname)-8s | %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S',
     handlers=[
-        logging.FileHandler('sts_generation.log'),
+        logging.FileHandler('logs/sts_generation.log'),
         logging.StreamHandler()
     ]
 )
@@ -110,9 +115,9 @@ for idx, input_sentence in enumerate(sentences, 1):
         results_database.append(output)
 
 # Save database
-with open('sts_database.jsonl', 'w') as f:
+with open('output/sts_database.jsonl', 'w') as f:
     for entry in results_database:
         f.write(json.dumps(entry) + '\n')
 
-logger.info(f"Database generation complete | TOTAL_ENTRIES={len(results_database)} | OUTPUT_FILE=sts_database.jsonl")
+logger.info(f"Database generation complete | TOTAL_ENTRIES={len(results_database)} | OUTPUT_FILE=output/sts_database.jsonl")
 logger.info(f"Token usage | INPUT_TOKENS={total_input_tokens} | OUTPUT_TOKENS={total_output_tokens} | TOTAL_TOKENS={total_input_tokens + total_output_tokens}")

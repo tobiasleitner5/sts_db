@@ -2,3 +2,5 @@
 *.jsonl
 *.log
 __pycache__/
+command.txt
+/output

@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import json
 import logging
@@ -6,13 +7,17 @@ from openai import OpenAI
 from utils import extract_random_sentences_from_gzipped_csv
 from system_prompt import get_system_prompt
 
+# Create output directories
+os.makedirs('logs', exist_ok=True)
+os.makedirs('output', exist_ok=True)
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s | %(levelname)-8s | %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S',
     handlers=[
-        logging.FileHandler('sts_batch_generation.log'),
+        logging.FileHandler('logs/sts_batch_generation.log'),
         logging.StreamHandler()
     ]
 )
@@ -74,7 +79,7 @@ def create_batch():
     metadata = {}
     
     # Create JSONL file with all requests
-    batch_file = "batch_requests.jsonl"
+    batch_file = "output/batch_requests.jsonl"
     with open(batch_file, 'w') as f:
         for idx, input_sentence in enumerate(sentences, 1):
             # Alternate between Positive and Hard negative
@@ -95,7 +100,7 @@ def create_batch():
             }
     
     # Save metadata for later
-    with open("batch_metadata.json", 'w') as f:
+    with open("output/batch_metadata.json", 'w') as f:
         json.dump(metadata, f)
     
     logger.info(f"Created batch file | FILE={batch_file}")
@@ -144,7 +149,7 @@ def download_results(batch_id):
         return
     
     # Load metadata
-    with open("batch_metadata.json", 'r') as f:
+    with open("output/batch_metadata.json", 'r') as f:
         metadata = json.load(f)
     
     # Download results
@@ -186,11 +191,11 @@ def download_results(batch_id):
             logger.error(f"Request failed | ID={custom_id} | ERROR={result['response']}")
     
     # Save results
-    with open('sts_database.jsonl', 'w') as f:
+    with open('output/sts_database.jsonl', 'w') as f:
         for entry in results_database:
             f.write(json.dumps(entry) + '\n')
     
-    logger.info(f"Results saved | TOTAL_ENTRIES={len(results_database)} | OUTPUT_FILE=sts_database.jsonl")
+    logger.info(f"Results saved | TOTAL_ENTRIES={len(results_database)} | OUTPUT_FILE=output/sts_database.jsonl")
     logger.info(f"Token usage | INPUT={total_input_tokens} | OUTPUT={total_output_tokens} | TOTAL={total_input_tokens + total_output_tokens}")
 
 
