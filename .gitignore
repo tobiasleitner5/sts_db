@@ -3,4 +3,5 @@
 *.log
 __pycache__/
 command.txt
-/output
+/prompts/
+.DS_Store

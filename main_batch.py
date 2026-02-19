@@ -7,22 +7,6 @@ from openai import OpenAI
 from utils import extract_random_sentences_from_gzipped_csv
 from system_prompt import get_system_prompt
 
-# Create output directories
-os.makedirs('logs', exist_ok=True)
-os.makedirs('output', exist_ok=True)
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s | %(levelname)-8s | %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S',
-    handlers=[
-        logging.FileHandler('logs/sts_batch_generation.log'),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
-
 # Parse command line arguments
 parser = argparse.ArgumentParser(description='Generate STS sentence pairs using OpenAI Batch API')
 parser.add_argument('--api-key', type=str, required=True, help='OpenAI API key')
@@ -32,13 +16,31 @@ parser.add_argument('--num-sentences', type=int, default=500, help='Number of se
 parser.add_argument('--mode', type=str, choices=['create', 'status', 'download'], default='create',
                     help='Mode: create batch, check status, or download results')
 parser.add_argument('--batch-id', type=str, help='Batch ID for status/download modes')
+parser.add_argument('--output-folder', type=str, default='/Volumes/Samsung PSSD T7 Media/data/ouput/sts_db',
+                    help='Path to output folder (default: /Volumes/Samsung PSSD T7 Media/data/ouput/sts_db)')
 args = parser.parse_args()
+
+# Create output directories
+os.makedirs(os.path.join(args.output_folder, 'logs'), exist_ok=True)
+os.makedirs(os.path.join(args.output_folder, 'output'), exist_ok=True)
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s | %(levelname)-8s | %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S',
+    handlers=[
+        logging.FileHandler(os.path.join(args.output_folder, 'logs/sts_batch_generation.log')),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 # Initialize the client
 client = OpenAI(api_key=args.api_key)
 
 # Load prompts CSV
-df = pd.read_csv('prompts.csv', sep=';')
+df = pd.read_csv('prompts/prompts.csv', sep=';')
 positive_prompts = df[df['Prompt type'] == 'Positive']
 hard_negative_prompts = df[df['Prompt type'] == 'Hard negative']
 
@@ -78,35 +80,36 @@ def create_batch():
     # Store metadata for later processing
     metadata = {}
     
-    # Create JSONL file with all requests
-    batch_file = "output/batch_requests.jsonl"
-    with open(batch_file, 'w') as f:
-        for idx, input_sentence in enumerate(sentences, 1):
-            # Alternate between Positive and Hard negative
-            if idx % 2 == 1:
-                row = positive_prompts.sample(1).iloc[0]
-            else:
-                row = hard_negative_prompts.sample(1).iloc[0]
-            
-            custom_id = f"request-{idx}"
-            request = create_batch_request(custom_id, row, input_sentence)
+    # Create JSONL file with all requests in a temp location first
+    requests = []
+    for idx, input_sentence in enumerate(sentences, 1):
+        # Alternate between Positive and Hard negative
+        if idx % 2 == 1:
+            row = positive_prompts.sample(1).iloc[0]
+        else:
+            row = hard_negative_prompts.sample(1).iloc[0]
+        
+        custom_id = f"request-{idx}"
+        request = create_batch_request(custom_id, row, input_sentence)
+        requests.append(request)
+        
+        # Store metadata to merge with results later
+        metadata[custom_id] = {
+            "input_sentence": input_sentence,
+            "prompt_type": row['Prompt type'],
+            "prompt_instruction": row['Prompt']
+        }
+    
+    # Write requests to a temporary file for upload
+    temp_batch_file = os.path.join(args.output_folder, "output/batch_requests_temp.jsonl")
+    with open(temp_batch_file, 'w') as f:
+        for request in requests:
             f.write(json.dumps(request) + '\n')
-            
-            # Store metadata to merge with results later
-            metadata[custom_id] = {
-                "input_sentence": input_sentence,
-                "prompt_type": row['Prompt type'],
-                "prompt_instruction": row['Prompt']
-            }
     
-    # Save metadata for later
-    with open("output/batch_metadata.json", 'w') as f:
-        json.dump(metadata, f)
-    
-    logger.info(f"Created batch file | FILE={batch_file}")
+    logger.info(f"Created batch file | FILE={temp_batch_file}")
     
     # Upload file to OpenAI
-    with open(batch_file, 'rb') as f:
+    with open(temp_batch_file, 'rb') as f:
         uploaded_file = client.files.create(file=f, purpose="batch")
     
     logger.info(f"Uploaded file | FILE_ID={uploaded_file.id}")
@@ -118,8 +121,31 @@ def create_batch():
         completion_window="24h"
     )
     
+    # Create batch-specific folder and save metadata + requests there
+    batch_dir = os.path.join(args.output_folder, "output", batch.id)
+    os.makedirs(batch_dir, exist_ok=True)
+    
+    # Move requests file into batch folder
+    batch_file = os.path.join(batch_dir, "batch_requests.jsonl")
+    os.rename(temp_batch_file, batch_file)
+    
+    # Save metadata in batch folder
+    with open(os.path.join(batch_dir, "batch_metadata.json"), 'w') as f:
+        json.dump(metadata, f)
+    
     logger.info(f"Batch created | BATCH_ID={batch.id} | STATUS={batch.status}")
+    logger.info(f"Batch files saved | DIR={batch_dir}")
     logger.info(f"Run with --mode status --batch-id {batch.id} to check progress")
+    
+    # Append batch job info to tracking file
+    tracking_file = os.path.join(args.output_folder, "output/batch_jobs.csv")
+    write_header = not os.path.exists(tracking_file)
+    with open(tracking_file, 'a') as f:
+        if write_header:
+            f.write("batch_id;filename_filter;num_sentences;created_at;downloaded\n")
+        f.write(f"{batch.id};{args.filename_filter};{args.num_sentences};{pd.Timestamp.now().isoformat()};no\n")
+    
+    logger.info(f"Batch info appended | FILE={tracking_file}")
     
     return batch.id
 
@@ -148,8 +174,9 @@ def download_results(batch_id):
         logger.error(f"Batch not complete | STATUS={batch.status}")
         return
     
-    # Load metadata
-    with open("output/batch_metadata.json", 'r') as f:
+    # Load metadata from batch-specific folder
+    batch_dir = os.path.join(args.output_folder, 'output', batch_id)
+    with open(os.path.join(batch_dir, "batch_metadata.json"), 'r') as f:
         metadata = json.load(f)
     
     # Download results
@@ -191,12 +218,23 @@ def download_results(batch_id):
             logger.error(f"Request failed | ID={custom_id} | ERROR={result['response']}")
     
     # Save results
-    with open('output/sts_database.jsonl', 'w') as f:
+    batch_output_dir = os.path.join(args.output_folder, 'output', batch_id)
+    os.makedirs(batch_output_dir, exist_ok=True)
+    output_file = os.path.join(batch_output_dir, 'sts_database.jsonl')
+    with open(output_file, 'w') as f:
         for entry in results_database:
             f.write(json.dumps(entry) + '\n')
     
-    logger.info(f"Results saved | TOTAL_ENTRIES={len(results_database)} | OUTPUT_FILE=output/sts_database.jsonl")
+    logger.info(f"Results saved | TOTAL_ENTRIES={len(results_database)} | OUTPUT_FILE={output_file}")
     logger.info(f"Token usage | INPUT={total_input_tokens} | OUTPUT={total_output_tokens} | TOTAL={total_input_tokens + total_output_tokens}")
+    
+    # Mark batch as downloaded in tracking file
+    tracking_file = os.path.join(args.output_folder, "output/batch_jobs.csv")
+    if os.path.exists(tracking_file):
+        tracking_df = pd.read_csv(tracking_file, sep=';')
+        tracking_df.loc[tracking_df['batch_id'] == batch_id, 'downloaded'] = 'yes'
+        tracking_df.to_csv(tracking_file, sep=';', index=False)
+        logger.info(f"Tracking file updated | FILE={tracking_file}")
 
 
 # Main execution

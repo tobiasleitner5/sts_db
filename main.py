@@ -7,9 +7,19 @@ from openai import OpenAI
 from utils import extract_random_sentences_from_gzipped_csv
 from system_prompt import get_system_prompt
 
+# Parse command line arguments
+parser = argparse.ArgumentParser(description='Generate STS sentence pairs using OpenAI')
+parser.add_argument('--api-key', type=str, required=True, help='OpenAI API key')
+parser.add_argument('--data-folder', type=str, required=True, help='Path to folder containing gzipped CSV files')
+parser.add_argument('--filename-filter', type=str, default=None, help='Substring to filter filenames')
+parser.add_argument('--num-sentences', type=int, default=500, help='Number of sentences to process (default: 500)')
+parser.add_argument('--output-folder', type=str, default='/Volumes/Samsung PSSD T7 Media/data/ouput/sts_db',
+                    help='Path to output folder (default: /Volumes/Samsung PSSD T7 Media/data/ouput/sts_db)')
+args = parser.parse_args()
+
 # Create output directories
-os.makedirs('logs', exist_ok=True)
-os.makedirs('output', exist_ok=True)
+os.makedirs(os.path.join(args.output_folder, 'logs'), exist_ok=True)
+os.makedirs(os.path.join(args.output_folder, 'output'), exist_ok=True)
 
 # Configure logging
 logging.basicConfig(
@@ -17,25 +27,17 @@ logging.basicConfig(
     format='%(asctime)s | %(levelname)-8s | %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S',
     handlers=[
-        logging.FileHandler('logs/sts_generation.log'),
+        logging.FileHandler(os.path.join(args.output_folder, 'logs/sts_generation.log')),
         logging.StreamHandler()
     ]
 )
 logger = logging.getLogger(__name__)
 
-# Parse command line arguments
-parser = argparse.ArgumentParser(description='Generate STS sentence pairs using OpenAI')
-parser.add_argument('--api-key', type=str, required=True, help='OpenAI API key')
-parser.add_argument('--data-folder', type=str, required=True, help='Path to folder containing gzipped CSV files')
-parser.add_argument('--filename-filter', type=str, default=None, help='Substring to filter filenames')
-parser.add_argument('--num-sentences', type=int, default=500, help='Number of sentences to process (default: 500)')
-args = parser.parse_args()
-
 # Initialize the client
 client = OpenAI(api_key=args.api_key)
 
 # Load your cleaned CSV
-df = pd.read_csv('prompts.csv', sep=';')
+df = pd.read_csv('prompts/prompts.csv', sep=';')
 
 # Separate prompts by type
 positive_prompts = df[df['Prompt type'] == 'Positive']
@@ -115,9 +117,10 @@ for idx, input_sentence in enumerate(sentences, 1):
         results_database.append(output)
 
 # Save database
-with open('output/sts_database.jsonl', 'w') as f:
+output_file = os.path.join(args.output_folder, 'output/sts_database.jsonl')
+with open(output_file, 'w') as f:
     for entry in results_database:
         f.write(json.dumps(entry) + '\n')
 
-logger.info(f"Database generation complete | TOTAL_ENTRIES={len(results_database)} | OUTPUT_FILE=output/sts_database.jsonl")
+logger.info(f"Database generation complete | TOTAL_ENTRIES={len(results_database)} | OUTPUT_FILE={output_file}")
 logger.info(f"Token usage | INPUT_TOKENS={total_input_tokens} | OUTPUT_TOKENS={total_output_tokens} | TOTAL_TOKENS={total_input_tokens + total_output_tokens}")
