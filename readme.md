@@ -32,9 +32,11 @@ pip install -r requirements.txt
 |------|-------------|
 | `main.py` | Real-time processing script (synchronous API calls) |
 | `main_batch.py` | Batch processing script (OpenAI Batch API - 50% cheaper) |
+| `main_batch_validation.py` | Validation script — runs every prompt on N sentences for comparison |
 | `utils.py` | Utility functions for data extraction |
-| `prompts.csv` | Pool of prompts for positive and hard negative generation |
-| `sts_database.jsonl` | Output file with generated sentence pairs |
+| `system_prompt.py` | Central system prompt builder (reads from template file) |
+| `prompts/prompts.csv` | Pool of prompts for positive and hard negative generation |
+| `prompts/system_prompts/` | System prompt template files |
 
 ## Usage
 
@@ -58,6 +60,7 @@ python3 main.py \
 | `--data-folder` | Yes | - | Path to folder containing gzipped CSV files |
 | `--filename-filter` | No | None | Only process files containing this substring |
 | `--num-sentences` | No | 500 | Number of random sentences to process |
+| `--output-folder` | No | `/Volumes/Samsung PSSD T7 Media/data/ouput/sts_db` | Path to output folder |
 
 ---
 
@@ -116,6 +119,7 @@ python3 main_batch.py \
 | `--num-sentences` | No | 500 | Number of random sentences to process |
 | `--mode` | No | create | Mode: `create`, `status`, or `download` |
 | `--batch-id` | Yes** | - | Batch ID for status/download modes |
+| `--output-folder` | No | `/Volumes/Samsung PSSD T7 Media/data/ouput/sts_db` | Path to output folder |
 
 \* Required only for `create` mode  
 \** Required only for `status` and `download` modes
@@ -128,12 +132,53 @@ python3 main_batch.py \
 | Production runs (500+ sentences) | `main_batch.py` | 50% cost savings |
 | Real-time applications | `main.py` | Low latency |
 | Large-scale dataset creation | `main_batch.py` | Higher rate limits |
+| Prompt quality comparison | `main_batch_validation.py` | Every prompt × every sentence |
+
+---
+
+## Prompt Validation (`main_batch_validation.py`)
+
+For comparing prompt quality. Unlike the production scripts that **sample** prompts randomly, this script runs **every prompt** on each of the N input sentences. This produces a complete matrix (sentences × prompts) so you can compare outputs across prompts for the same input.
+
+With the default 20 sentences and 20 prompts, this creates 400 requests.
+
+### Create Validation Batch
+
+```bash
+python3 main_batch_validation.py \
+  --api-key "sk-your-openai-api-key" \
+  --data-folder "/path/to/gzipped/csv/files" \
+  --filename-filter "2013" \
+  --num-sentences 20 \
+  --mode create
+```
+
+### Check Status / Download
+
+Same as `main_batch.py` — use `--mode status` or `--mode download` with `--batch-id`.
+
+### Validation Arguments
+
+| Argument | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `--api-key` | Yes | - | Your OpenAI API key |
+| `--data-folder` | Yes* | - | Path to folder containing gzipped CSV files |
+| `--filename-filter` | No | None | Only process files containing this substring |
+| `--num-sentences` | No | 20 | Number of random sentences to process |
+| `--mode` | No | create | Mode: `create`, `status`, or `download` |
+| `--batch-id` | Yes** | - | Batch ID for status/download modes |
+| `--output-folder` | No | `/Volumes/Samsung PSSD T7 Media/data/ouput/sts_db` | Path to output folder |
+
+\* Required only for `create` mode  
+\** Required only for `status` and `download` modes
+
+Results are stored under `<output_folder>/validation/<batch_id>/`.
 
 ---
 
 ## Output Format
 
-Results are saved to `sts_database.jsonl` with one JSON object per line:
+Results are saved to `<output_folder>/output/<batch_id>/sts_database.jsonl` with one JSON object per line:
 
 ```json
 {
@@ -153,13 +198,28 @@ The generator uses two types of prompts from `prompts.csv`:
 
 These alternate for balanced training data.
 
-## Logging
+## Output Structure
 
-Both scripts log to console and file:
-- `main.py` → `sts_generation.log`
-- `main_batch.py` → `sts_batch_generation.log`
+```
+<output_folder>/
+├── logs/
+│   ├── sts_generation.log
+│   ├── sts_batch_generation.log
+│   └── sts_batch_validation.log
+├── output/
+│   ├── batch_jobs.csv              # Tracking file for all batch jobs
+│   └── <batch_id>/
+│       ├── batch_requests.jsonl     # Requests sent to OpenAI
+│       ├── batch_metadata.json      # Metadata for merging results
+│       └── sts_database.jsonl       # Final results
+└── validation/
+    └── <batch_id>/
+        ├── batch_requests.jsonl
+        ├── batch_metadata.json
+        └── sts_validation.jsonl
+```
 
-Logs include timestamps, progress tracking, and token usage summaries.
+All scripts log to both console and their respective log file. Logs include timestamps, progress tracking, and token usage summaries.
 
 ## Data Requirements
 
