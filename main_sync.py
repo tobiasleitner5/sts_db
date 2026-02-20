@@ -13,13 +13,14 @@ parser.add_argument('--api-key', type=str, required=True, help='OpenAI API key')
 parser.add_argument('--data-folder', type=str, required=True, help='Path to folder containing gzipped CSV files')
 parser.add_argument('--filename-filter', type=str, default=None, help='Substring to filter filenames')
 parser.add_argument('--num-sentences', type=int, default=500, help='Number of sentences to process (default: 500)')
+parser.add_argument('--model', type=str, required=True, help='OpenAI model to use')
 parser.add_argument('--output-folder', type=str, default='/Volumes/Samsung PSSD T7 Media/data/ouput/sts_db',
                     help='Path to output folder (default: /Volumes/Samsung PSSD T7 Media/data/ouput/sts_db)')
 args = parser.parse_args()
 
 # Create output directories
-os.makedirs(os.path.join(args.output_folder, 'logs'), exist_ok=True)
-os.makedirs(os.path.join(args.output_folder, 'output'), exist_ok=True)
+os.makedirs(os.path.join(args.output_folder, 'logs/sync'), exist_ok=True)
+os.makedirs(os.path.join(args.output_folder, 'output/sync'), exist_ok=True)
 
 # Configure logging
 logging.basicConfig(
@@ -55,7 +56,7 @@ def generate_sts_pair(row, text_input):
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=args.model,
             messages=[
                 {"role": "system", "content": system_content},
                 {"role": "user", "content": text_input}

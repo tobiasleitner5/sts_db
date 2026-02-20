@@ -16,6 +16,7 @@ parser.add_argument('--num-sentences', type=int, default=500, help='Number of se
 parser.add_argument('--mode', type=str, choices=['create', 'status', 'download'], default='create',
                     help='Mode: create batch, check status, or download results')
 parser.add_argument('--batch-id', type=str, help='Batch ID for status/download modes')
+parser.add_argument('--model', type=str, required=True, help='OpenAI model to use')
 parser.add_argument('--output-folder', type=str, default='/Volumes/Samsung PSSD T7 Media/data/ouput/sts_db',
                     help='Path to output folder (default: /Volumes/Samsung PSSD T7 Media/data/ouput/sts_db)')
 args = parser.parse_args()
@@ -56,7 +57,7 @@ def create_batch_request(custom_id, row, text_input):
         "method": "POST",
         "url": "/v1/chat/completions",
         "body": {
-            "model": "gpt-4o-mini",
+            "model": args.model,
             "messages": [
                 {"role": "system", "content": system_content},
                 {"role": "user", "content": text_input}
@@ -134,7 +135,7 @@ def create_batch():
         json.dump(metadata, f)
     
     prompt_version = get_system_prompt_version()
-    logger.info(f"Batch created | BATCH_ID={batch.id} | STATUS={batch.status} | SYSTEM_PROMPT={prompt_version}")
+    logger.info(f"Batch created | BATCH_ID={batch.id} | STATUS={batch.status} | SYSTEM_PROMPT={prompt_version} | MODEL={args.model}")
     logger.info(f"Batch files saved | DIR={batch_dir}")
     logger.info(f"Run with --mode status --batch-id {batch.id} to check progress")
     

@@ -5,7 +5,7 @@ import logging
 import argparse
 from openai import OpenAI
 from utils import extract_random_sentences_from_gzipped_csv
-from system_prompt import get_system_prompt
+from system_prompt import get_system_prompt, get_system_prompt_version
 
 # Parse command line arguments
 parser = argparse.ArgumentParser(description='Validation: Generate STS pairs for every prompt × N sentences using OpenAI Batch API')
@@ -16,6 +16,7 @@ parser.add_argument('--num-sentences', type=int, default=20, help='Number of sen
 parser.add_argument('--mode', type=str, choices=['create', 'status', 'download'], default='create',
                     help='Mode: create batch, check status, or download results')
 parser.add_argument('--batch-id', type=str, help='Batch ID for status/download modes')
+parser.add_argument('--model', type=str, required=True, help='OpenAI model to use')
 parser.add_argument('--output-folder', type=str, default='/Volumes/Samsung PSSD T7 Media/data/ouput/sts_db',
                     help='Path to output folder (default: /Volumes/Samsung PSSD T7 Media/data/ouput/sts_db)')
 args = parser.parse_args()
@@ -54,7 +55,7 @@ def create_batch_request(custom_id, row, text_input):
         "method": "POST",
         "url": "/v1/chat/completions",
         "body": {
-            "model": "gpt-4o-mini",
+            "model": args.model,
             "messages": [
                 {"role": "system", "content": system_content},
                 {"role": "user", "content": text_input}
@@ -70,11 +71,12 @@ def create_batch():
     sentences = extract_random_sentences_from_gzipped_csv(
         args.data_folder,
         num_sentences=args.num_sentences,
-        filename_filter=args.filename_filter
+        filename_filter=args.filename_filter,
+        seed=42
     )
 
     total_requests = len(sentences) * len(all_prompts)
-    logger.info(f"Creating validation batch | SENTENCES={len(sentences)} | PROMPTS={len(all_prompts)} | TOTAL_REQUESTS={total_requests}")
+    logger.info(f"Creating validation batch | MODEL={args.model} | SENTENCES={len(sentences)} | PROMPTS={len(all_prompts)} | TOTAL_REQUESTS={total_requests}")
 
     # Store metadata for later processing
     metadata = {}
@@ -98,7 +100,9 @@ def create_batch():
             }
 
     # Write requests to a temporary file for upload
-    temp_batch_file = os.path.join(args.output_folder, "validation/batch_requests_temp.jsonl")
+    model_dir = os.path.join(args.output_folder, "validation", args.model)
+    os.makedirs(model_dir, exist_ok=True)
+    temp_batch_file = os.path.join(model_dir, "batch_requests_temp.jsonl")
     with open(temp_batch_file, 'w') as f:
         for request in requests:
             f.write(json.dumps(request) + '\n')
@@ -119,7 +123,7 @@ def create_batch():
     )
 
     # Create batch-specific folder and save metadata + requests there
-    batch_dir = os.path.join(args.output_folder, "validation", batch.id)
+    batch_dir = os.path.join(args.output_folder, "validation", args.model, batch.id)
     os.makedirs(batch_dir, exist_ok=True)
 
     # Move requests file into batch folder
@@ -162,7 +166,7 @@ def download_results(batch_id):
         return
 
     # Load metadata from batch-specific folder
-    batch_dir = os.path.join(args.output_folder, 'validation', batch_id)
+    batch_dir = os.path.join(args.output_folder, 'validation', args.model, batch_id)
     with open(os.path.join(batch_dir, "batch_metadata.json"), 'r') as f:
         metadata = json.load(f)
 
@@ -208,13 +212,24 @@ def download_results(batch_id):
             logger.error(f"Request failed | ID={custom_id} | ERROR={result['response']}")
 
     # Save results as JSONL
-    output_file = os.path.join(batch_dir, 'sts_validation.jsonl')
+    system_prompt_version = get_system_prompt_version()
+
+    output_dir = os.path.join(
+        args.output_folder,
+        'validation',
+        args.model,
+        system_prompt_version,
+        batch_id
+    )
+    os.makedirs(output_dir, exist_ok=True)
+
+    output_file = os.path.join(output_dir, f'sts_validation_{system_prompt_version}.jsonl')
     with open(output_file, 'w') as f:
         for entry in results_database:
             f.write(json.dumps(entry) + '\n')
 
     # Save results as Excel
-    excel_file = os.path.join(batch_dir, 'sts_validation.xlsx')
+    excel_file = os.path.join(output_dir, f'sts_validation_{system_prompt_version}.xlsx')
     results_df = pd.DataFrame(results_database)
     results_df.to_excel(excel_file, index=False)
 

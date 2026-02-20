@@ -18,7 +18,7 @@ def get_first_sentence(text):
     return sentences[0] if sentences else text
 
 
-def extract_random_sentences_from_gzipped_csv(data_folder, num_sentences, text_column="Body", filename_filter=None):
+def extract_random_sentences_from_gzipped_csv(data_folder, num_sentences, text_column="Body", filename_filter=None, seed=None):
     """Extract random first sentences from 'Body' column of a gzipped CSV file.
     
     Args:
@@ -26,6 +26,7 @@ def extract_random_sentences_from_gzipped_csv(data_folder, num_sentences, text_c
         num_sentences: Number of random sentences to return
         text_column: The column name to extract text from
         filename_filter: Substring to filter filenames (only process files containing this string)
+        seed: Random seed for reproducible sampling (default: None = non-deterministic)
     
     Returns:
         List of random first sentences
@@ -62,5 +63,8 @@ def extract_random_sentences_from_gzipped_csv(data_folder, num_sentences, text_c
     # Return random sample
     if len(all_sentences) <= num_sentences:
         return all_sentences
+    
+    if seed is not None:
+        random.seed(seed)
     
     return random.sample(all_sentences, num_sentences)

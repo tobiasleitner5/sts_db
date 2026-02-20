@@ -1,6 +1,6 @@
 # STS Database Generator
 
-A tool for generating Semantic Textual Similarity (STS) sentence pairs using OpenAI's GPT-4o model. The generator creates positive paraphrases and hard negative examples from input sentences extracted from gzipped CSV files.
+A tool for generating Semantic Textual Similarity (STS) sentence pairs using an OpenAI chat model. The generator creates positive paraphrases and hard negative examples from input sentences extracted from gzipped CSV files.
 
 ## Overview
 
@@ -8,7 +8,7 @@ This project generates sentence pairs for training STS models by:
 
 1. **Extracting sentences** from gzipped CSV files (first sentence from each article body)
 2. **Applying diverse prompts** that alternate between positive (paraphrase) and hard negative (contradicting) transformations
-3. **Generating output sentences** using OpenAI's GPT-4o model
+3. **Generating output sentences** using an OpenAI chat model
 4. **Saving results** in JSONL format for downstream training
 
 ## Features
@@ -30,7 +30,7 @@ pip install -r requirements.txt
 
 | File | Description |
 |------|-------------|
-| `main.py` | Real-time processing script (synchronous API calls) |
+| `main_sync.py` | Real-time processing script (synchronous API calls) |
 | `main_batch.py` | Batch processing script (OpenAI Batch API - 50% cheaper) |
 | `main_batch_validation.py` | Validation script — runs every prompt on N sentences for comparison |
 | `utils.py` | Utility functions for data extraction |
@@ -40,13 +40,14 @@ pip install -r requirements.txt
 
 ## Usage
 
-### Real-Time Processing (`main.py`)
+### Real-Time Processing (`main_sync.py`)
 
 For immediate results with synchronous API calls:
 
 ```bash
-python3 main.py \
+python3 main_sync.py \
   --api-key "sk-your-openai-api-key" \
+  --model "gpt-4o-mini" \
   --data-folder "/path/to/gzipped/csv/files" \
   --filename-filter "2000" \
   --num-sentences 500
@@ -60,7 +61,8 @@ python3 main.py \
 | `--data-folder` | Yes | - | Path to folder containing gzipped CSV files |
 | `--filename-filter` | No | None | Only process files containing this substring |
 | `--num-sentences` | No | 500 | Number of random sentences to process |
-| `--output-folder` | No | `/Volumes/Samsung PSSD T7 Media/data/ouput/sts_db` | Path to output folder |
+| `--model` | Yes | - | OpenAI model to use |
+| `--output-folder` | No | `/Volumes/Samsung PSSD T7 Media/data/output/sts_db` | Path to output folder |
 
 ---
 
@@ -81,6 +83,7 @@ The Batch API workflow consists of three steps:
 ```bash
 python3 main_batch.py \
   --api-key "sk-your-openai-api-key" \
+  --model "gpt-4o-mini" \
   --data-folder "/path/to/gzipped/csv/files" \
   --filename-filter "2000" \
   --num-sentences 5000 \
@@ -94,6 +97,7 @@ This will output a batch ID (e.g., `batch_abc123`).
 ```bash
 python3 main_batch.py \
   --api-key "sk-your-openai-api-key" \
+  --model "gpt-4o-mini" \
   --mode status \
   --batch-id "batch_abc123"
 ```
@@ -105,6 +109,7 @@ Once the batch is complete:
 ```bash
 python3 main_batch.py \
   --api-key "sk-your-openai-api-key" \
+  --model "gpt-4o-mini" \
   --mode download \
   --batch-id "batch_abc123"
 ```
@@ -119,7 +124,8 @@ python3 main_batch.py \
 | `--num-sentences` | No | 500 | Number of random sentences to process |
 | `--mode` | No | create | Mode: `create`, `status`, or `download` |
 | `--batch-id` | Yes** | - | Batch ID for status/download modes |
-| `--output-folder` | No | `/Volumes/Samsung PSSD T7 Media/data/ouput/sts_db` | Path to output folder |
+| `--model` | Yes | - | OpenAI model to use |
+| `--output-folder` | No | `/Volumes/Samsung PSSD T7 Media/data/output/sts_db` | Path to output folder |
 
 \* Required only for `create` mode  
 \** Required only for `status` and `download` modes
@@ -128,9 +134,9 @@ python3 main_batch.py \
 
 | Use Case | Script | Why |
 |----------|--------|-----|
-| Quick testing (< 100 sentences) | `main.py` | Immediate results |
+| Quick testing (< 100 sentences) | `main_sync.py` | Immediate results |
 | Production runs (500+ sentences) | `main_batch.py` | 50% cost savings |
-| Real-time applications | `main.py` | Low latency |
+| Real-time applications | `main_sync.py` | Low latency |
 | Large-scale dataset creation | `main_batch.py` | Higher rate limits |
 | Prompt quality comparison | `main_batch_validation.py` | Every prompt × every sentence |
 
@@ -147,6 +153,7 @@ With the default 20 sentences and 20 prompts, this creates 400 requests.
 ```bash
 python3 main_batch_validation.py \
   --api-key "sk-your-openai-api-key" \
+  --model "gpt-4o-mini" \
   --data-folder "/path/to/gzipped/csv/files" \
   --filename-filter "2013" \
   --num-sentences 20 \
@@ -155,7 +162,7 @@ python3 main_batch_validation.py \
 
 ### Check Status / Download
 
-Same as `main_batch.py` — use `--mode status` or `--mode download` with `--batch-id`.
+Same as `main_batch.py` — use `--mode status` or `--mode download` with `--batch-id` and `--model`.
 
 ### Validation Arguments
 
@@ -167,12 +174,13 @@ Same as `main_batch.py` — use `--mode status` or `--mode download` with `--bat
 | `--num-sentences` | No | 20 | Number of random sentences to process |
 | `--mode` | No | create | Mode: `create`, `status`, or `download` |
 | `--batch-id` | Yes** | - | Batch ID for status/download modes |
-| `--output-folder` | No | `/Volumes/Samsung PSSD T7 Media/data/ouput/sts_db` | Path to output folder |
+| `--model` | Yes | - | OpenAI model to use |
+| `--output-folder` | No | `/Volumes/Samsung PSSD T7 Media/data/output/sts_db` | Path to output folder |
 
 \* Required only for `create` mode  
 \** Required only for `status` and `download` modes
 
-Results are stored under `<output_folder>/validation/<batch_id>/`.
+Results are stored under `<output_folder>/validation/<model>/<system_prompt_version>/<batch_id>/`.
 
 ---
 
@@ -203,7 +211,7 @@ These alternate for balanced training data.
 ```
 <output_folder>/
 ├── logs/
-│   ├── sts_generation.log
+│   ├── sync/sts_generation.log
 │   ├── sts_batch_generation.log
 │   └── sts_batch_validation.log
 ├── output/
@@ -213,10 +221,13 @@ These alternate for balanced training data.
 │       ├── batch_metadata.json      # Metadata for merging results
 │       └── sts_database.jsonl       # Final results
 └── validation/
-    └── <batch_id>/
-        ├── batch_requests.jsonl
-        ├── batch_metadata.json
-        └── sts_validation.jsonl
+    └── <model>/
+        └── <system_prompt_version>/
+            └── <batch_id>/
+                ├── batch_requests.jsonl
+                ├── batch_metadata.json
+                ├── sts_validation_<system_prompt_version>.jsonl
+                └── sts_validation_<system_prompt_version>.xlsx
 ```
 
 All scripts log to both console and their respective log file. Logs include timestamps, progress tracking, and token usage summaries.
@@ -239,7 +250,7 @@ The system prompt template is stored in `prompts/system_prompts/` and must follo
 
 - Reframed the system prompt with a clear **role definition**: "You are a news-sentence rewriter."
 - Structured the prompt into a dedicated **Instruction** slot and numbered **Rules** for clarity.
-- Added a mandatory **named-entity replacement** rule: every rewrite (positive or negative) must swap entities such as person names, company names, cities, countries, currencies, and organizations with plausible alternatives.
+- Added a mandatory **named-entity replacement** rule: every rewrite (positive or negative) must swap entities such as person names, company names, cities, countries, currencies, and organizations with plausible alternatives. This is done to prevent the model from learning entity related bias. Also in v2 we have noticed that only for negatives the entity was swaped sometimes.
 - Retained the **three few-shot examples** from v2 to anchor the expected news writing style.
 
 ---
