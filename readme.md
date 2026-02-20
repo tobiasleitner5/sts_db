@@ -246,12 +246,20 @@ The system prompt template is stored in `prompts/system_prompts/` and must follo
 - Added instruction to **keep the writing style consistent** with the input sentence.
 - Included **three few-shot examples** of real financial news articles to anchor the model's tone and formatting (e.g., earnings reports, company notes).
 
-### v3 — Rewriter Role & Entity Replacement *(current)*
+### v3 — Rewriter Role & Entity Replacement
 
 - Reframed the system prompt with a clear **role definition**: "You are a news-sentence rewriter."
 - Structured the prompt into a dedicated **Instruction** slot and numbered **Rules** for clarity.
 - Added a mandatory **named-entity replacement** rule: every rewrite (positive or negative) must swap entities such as person names, company names, cities, countries, currencies, and organizations with plausible alternatives. This is done to prevent the model from learning entity related bias. Also in v2 we have noticed that only for negatives the entity was swaped sometimes.
 - Retained the **three few-shot examples** from v2 to anchor the expected news writing style.
+
+### v4 — Entity Replacement Enforcement *(current)*
+
+- Made entity replacement independent from meaning change (always replace entities, regardless of positive/negative prompt).
+- Clarified semantic intent: positives must keep core meaning; hard negatives must change meaning while staying structurally similar.
+- Added diversity constraints to avoid near-neighbor swaps (e.g., "Japan" → "South Korea").
+- Required a structured `entity_replacements` list in the JSON output to make replacements explicit.
+- Added a failure sentinel (`ERROR: ENTITY_REPLACEMENT_FAILED`) when replacements cannot be made.
 
 ---
 
