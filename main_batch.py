@@ -5,7 +5,7 @@ import logging
 import argparse
 from openai import OpenAI
 from utils import extract_random_sentences_from_gzipped_csv
-from system_prompt import get_system_prompt
+from system_prompt import get_system_prompt, get_system_prompt_version
 
 # Parse command line arguments
 parser = argparse.ArgumentParser(description='Generate STS sentence pairs using OpenAI Batch API')
@@ -133,7 +133,8 @@ def create_batch():
     with open(os.path.join(batch_dir, "batch_metadata.json"), 'w') as f:
         json.dump(metadata, f)
     
-    logger.info(f"Batch created | BATCH_ID={batch.id} | STATUS={batch.status}")
+    prompt_version = get_system_prompt_version()
+    logger.info(f"Batch created | BATCH_ID={batch.id} | STATUS={batch.status} | SYSTEM_PROMPT={prompt_version}")
     logger.info(f"Batch files saved | DIR={batch_dir}")
     logger.info(f"Run with --mode status --batch-id {batch.id} to check progress")
     
@@ -142,8 +143,8 @@ def create_batch():
     write_header = not os.path.exists(tracking_file)
     with open(tracking_file, 'a') as f:
         if write_header:
-            f.write("batch_id;filename_filter;num_sentences;created_at;downloaded\n")
-        f.write(f"{batch.id};{args.filename_filter};{args.num_sentences};{pd.Timestamp.now().isoformat()};no\n")
+            f.write("batch_id;filename_filter;num_sentences;created_at;downloaded;system_prompt_version\n")
+        f.write(f"{batch.id};{args.filename_filter};{args.num_sentences};{pd.Timestamp.now().isoformat()};no;{prompt_version}\n")
     
     logger.info(f"Batch info appended | FILE={tracking_file}")
     

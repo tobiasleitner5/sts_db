@@ -221,6 +221,29 @@ These alternate for balanced training data.
 
 All scripts log to both console and their respective log file. Logs include timestamps, progress tracking, and token usage summaries.
 
+## System Prompt Versions
+
+The system prompt template is stored in `prompts/system_prompts/` and must follow the naming convention `system_prompt_vX.txt`. The active version is configured in `system_prompt.py`.
+
+### v1 — Baseline
+
+- Minimal prompt: injects the prompt instruction and enforces JSON-only output (`{"output_sentence": <output>}`).
+- No guidance on writing style or domain.
+
+### v2 — Writing Style Consistency
+
+- Added instruction to **keep the writing style consistent** with the input sentence.
+- Included **three few-shot examples** of real financial news articles to anchor the model's tone and formatting (e.g., earnings reports, company notes).
+
+### v3 — Rewriter Role & Entity Replacement *(current)*
+
+- Reframed the system prompt with a clear **role definition**: "You are a news-sentence rewriter."
+- Structured the prompt into a dedicated **Instruction** slot and numbered **Rules** for clarity.
+- Added a mandatory **named-entity replacement** rule: every rewrite (positive or negative) must swap entities such as person names, company names, cities, countries, currencies, and organizations with plausible alternatives.
+- Retained the **three few-shot examples** from v2 to anchor the expected news writing style.
+
+---
+
 ## Data Requirements
 
 Input gzipped CSV files must have a `Body` column containing article text. The script extracts the first sentence from each body and filters to sentences with more than 3 words.

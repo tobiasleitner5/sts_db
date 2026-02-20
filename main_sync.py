@@ -27,7 +27,7 @@ logging.basicConfig(
     format='%(asctime)s | %(levelname)-8s | %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S',
     handlers=[
-        logging.FileHandler(os.path.join(args.output_folder, 'logs/sts_generation.log')),
+        logging.FileHandler(os.path.join(args.output_folder, 'logs/sync/sts_generation.log')),
         logging.StreamHandler()
     ]
 )
@@ -117,7 +117,7 @@ for idx, input_sentence in enumerate(sentences, 1):
         results_database.append(output)
 
 # Save database
-output_file = os.path.join(args.output_folder, 'output/sts_database.jsonl')
+output_file = os.path.join(args.output_folder, 'output/sync/sts_database.jsonl')
 with open(output_file, 'w') as f:
     for entry in results_database:
         f.write(json.dumps(entry) + '\n')
