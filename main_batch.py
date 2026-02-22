@@ -132,7 +132,7 @@ def create_batch():
     # Create batch job
     batch = client.batches.create(
         input_file_id=uploaded_file.id,
-        endpoint="/v1/chat/completions",
+        endpoint="/v1/responses",
         completion_window="24h"
     )
     
