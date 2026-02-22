@@ -64,11 +64,12 @@ def create_batch_request(custom_id, row, text_input):
         "input": [
             {"role": "system", "content": system_content},
             {"role": "user", "content": text_input}
-        ],
-        "temperature": 0.7
+        ]
     }
     if args.model == "gpt-5.2":
         body["reasoning"] = {"effort": "medium"}
+    else:
+        body["temperature"] = 0.7
 
     return {
         "custom_id": custom_id,

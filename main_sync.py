@@ -64,10 +64,11 @@ def generate_sts_pair(row, text_input):
                 {"role": "system", "content": system_content},
                 {"role": "user", "content": text_input}
             ],
-            "temperature": 0.7  # Slight randomness helps with STS diversity
         }
         if args.model == "gpt-5.2":
             request_kwargs["reasoning"] = {"effort": "medium"}
+        else:
+            request_kwargs["temperature"] = 0.7  # Slight randomness helps with STS diversity
 
         response = client.responses.create(**request_kwargs)
         
