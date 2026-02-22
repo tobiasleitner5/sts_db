@@ -17,9 +17,12 @@ parser.add_argument('--mode', type=str, choices=['create', 'status', 'download']
                     help='Mode: create batch, check status, or download results')
 parser.add_argument('--batch-id', type=str, help='Batch ID for status/download modes')
 parser.add_argument('--model', type=str, required=True, help='OpenAI model to use')
+parser.add_argument('--prompt-type', type=str, choices=['positive', 'negative', 'both'], default='both',
+                    help='Which prompt types to use (default: both)')
 parser.add_argument('--output-folder', type=str, default='/Volumes/Samsung PSSD T7 Media/data/ouput/sts_db',
                     help='Path to output folder (default: /Volumes/Samsung PSSD T7 Media/data/ouput/sts_db)')
 args = parser.parse_args()
+
 
 # Create output directories
 os.makedirs(os.path.join(args.output_folder, 'logs'), exist_ok=True)
@@ -42,26 +45,34 @@ client = OpenAI(api_key=args.api_key)
 
 # Load prompts CSV — use ALL prompts (no sampling)
 df = pd.read_csv('prompts/prompts.csv', sep=';')
-all_prompts = df.reset_index(drop=True)
+if args.prompt_type == 'positive':
+    all_prompts = df[df['Prompt type'] == 'Positive'].reset_index(drop=True)
+elif args.prompt_type == 'negative':
+    all_prompts = df[df['Prompt type'] == 'Hard negative'].reset_index(drop=True)
+else:
+    all_prompts = df.reset_index(drop=True)
 
 
 def create_batch_request(custom_id, row, text_input):
     """Create a single batch request entry."""
     prompt_instruction = row['Prompt']
-    system_content = get_system_prompt(prompt_instruction)
+    prompt_type = row['Prompt type']
+    system_content = get_system_prompt(prompt_instruction, prompt_type)
+
+    body = {
+        "model": args.model,
+        "messages": [
+            {"role": "system", "content": system_content},
+            {"role": "user", "content": text_input}
+        ],
+        "temperature": 0.7
+    }
 
     return {
         "custom_id": custom_id,
         "method": "POST",
         "url": "/v1/chat/completions",
-        "body": {
-            "model": args.model,
-            "messages": [
-                {"role": "system", "content": system_content},
-                {"role": "user", "content": text_input}
-            ],
-            "temperature": 0.7
-        }
+        "body": body
     }
 
 
@@ -76,7 +87,14 @@ def create_batch():
     )
 
     total_requests = len(sentences) * len(all_prompts)
-    logger.info(f"Creating validation batch | MODEL={args.model} | SENTENCES={len(sentences)} | PROMPTS={len(all_prompts)} | TOTAL_REQUESTS={total_requests}")
+    logger.info(
+        "Creating validation batch | MODEL=%s | PROMPT_TYPE=%s | SENTENCES=%s | PROMPTS=%s | TOTAL_REQUESTS=%s",
+        args.model,
+        args.prompt_type,
+        len(sentences),
+        len(all_prompts),
+        total_requests,
+    )
 
     # Store metadata for later processing
     metadata = {}

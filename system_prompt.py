@@ -2,15 +2,25 @@
 import os
 import re
 
-VERSION = 'v4'
+VERSION = 'v5'
 
-def get_system_prompt(prompt_instruction: str) -> str:
+def get_system_prompt(prompt_instruction: str, prompt_type: str) -> str:
     """Build the system prompt for STS pair generation.
     
     Central definition so that main.py and main_batch.py
     always use the same prompt wording.
     """
-    prompt_file = os.path.join(os.path.dirname(__file__), 'prompts', 'system_prompts', f'system_prompt_{VERSION}.txt')
+    prompt_type_normalized = (prompt_type or "").strip().lower()
+    if "negative" in prompt_type_normalized:
+        variant = "negative"
+    else:
+        variant = "positive"
+    prompt_file = os.path.join(
+        os.path.dirname(__file__),
+        'prompts',
+        'system_prompts',
+        f'system_prompt_{variant}_{VERSION}.txt'
+    )
     filename = os.path.basename(prompt_file)
     name_without_ext = os.path.splitext(filename)[0]
     if not re.search(r'_v\d+$', name_without_ext):

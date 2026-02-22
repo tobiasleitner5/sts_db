@@ -62,6 +62,7 @@ python3 main_sync.py \
 | `--filename-filter` | No | None | Only process files containing this substring |
 | `--num-sentences` | No | 500 | Number of random sentences to process |
 | `--model` | Yes | - | OpenAI model to use |
+| `--prompt-type` | No | both | Which prompt types to use (`positive`, `negative`, `both`) |
 | `--output-folder` | No | `/Volumes/Samsung PSSD T7 Media/data/output/sts_db` | Path to output folder |
 
 ---
@@ -125,6 +126,7 @@ python3 main_batch.py \
 | `--mode` | No | create | Mode: `create`, `status`, or `download` |
 | `--batch-id` | Yes** | - | Batch ID for status/download modes |
 | `--model` | Yes | - | OpenAI model to use |
+| `--prompt-type` | No | both | Which prompt types to use (`positive`, `negative`, `both`) |
 | `--output-folder` | No | `/Volumes/Samsung PSSD T7 Media/data/output/sts_db` | Path to output folder |
 
 \* Required only for `create` mode  
@@ -144,7 +146,7 @@ python3 main_batch.py \
 
 ## Prompt Validation (`main_batch_validation.py`)
 
-For comparing prompt quality. Unlike the production scripts that **sample** prompts randomly, this script runs **every prompt** on each of the N input sentences. This produces a complete matrix (sentences × prompts) so you can compare outputs across prompts for the same input.
+For comparing prompt quality. Unlike the production scripts that **sample** prompts randomly, this script runs **every prompt** on each of the N input sentences (or only the selected prompt type if `--prompt-type` is set). This produces a complete matrix (sentences × prompts) so you can compare outputs across prompts for the same input.
 
 With the default 20 sentences and 20 prompts, this creates 400 requests.
 
@@ -175,6 +177,7 @@ Same as `main_batch.py` — use `--mode status` or `--mode download` with `--bat
 | `--mode` | No | create | Mode: `create`, `status`, or `download` |
 | `--batch-id` | Yes** | - | Batch ID for status/download modes |
 | `--model` | Yes | - | OpenAI model to use |
+| `--prompt-type` | No | both | Which prompt types to use (`positive`, `negative`, `both`) |
 | `--output-folder` | No | `/Volumes/Samsung PSSD T7 Media/data/output/sts_db` | Path to output folder |
 
 \* Required only for `create` mode  
@@ -234,7 +237,7 @@ All scripts log to both console and their respective log file. Logs include time
 
 ## System Prompt Versions
 
-The system prompt template is stored in `prompts/system_prompts/` and must follow the naming convention `system_prompt_vX.txt`. The active version is configured in `system_prompt.py`.
+System prompt templates are stored in `prompts/system_prompts/`. For v5 and later, the prompts are split by type and follow `system_prompt_positive_vX.txt` and `system_prompt_negative_vX.txt`. The active version is configured in `system_prompt.py`.
 
 ### v1 — Baseline
 
@@ -253,13 +256,20 @@ The system prompt template is stored in `prompts/system_prompts/` and must follo
 - Added a mandatory **named-entity replacement** rule: every rewrite (positive or negative) must swap entities such as person names, company names, cities, countries, currencies, and organizations with plausible alternatives. This is done to prevent the model from learning entity related bias. Also in v2 we have noticed that only for negatives the entity was swaped sometimes.
 - Retained the **three few-shot examples** from v2 to anchor the expected news writing style.
 
-### v4 — Entity Replacement Enforcement *(current)*
+### v4 — Entity Replacement Enforcement
 
 - Made entity replacement independent from meaning change (always replace entities, regardless of positive/negative prompt).
 - Clarified semantic intent: positives must keep core meaning; hard negatives must change meaning while staying structurally similar.
 - Added diversity constraints to avoid near-neighbor swaps (e.g., "Japan" → "South Korea").
 - Required a structured `entity_replacements` list in the JSON output to make replacements explicit.
 - Added a failure sentinel (`ERROR: ENTITY_REPLACEMENT_FAILED`) when replacements cannot be made.
+
+### v5 — Split Prompts for Positive vs. Negative *(current)*
+
+- Uses separate system prompts for positive vs. hard negative instructions to keep them shorter and clearer.
+- Positive prompt enforces same-meaning rewrites with entity replacement.
+- Negative prompt enforces meaning change while keeping structure similar, plus entity replacement.
+- Templates: `system_prompt_positive_v5.txt` and `system_prompt_negative_v5.txt`.
 
 ---
 

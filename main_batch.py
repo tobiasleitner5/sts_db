@@ -17,9 +17,12 @@ parser.add_argument('--mode', type=str, choices=['create', 'status', 'download']
                     help='Mode: create batch, check status, or download results')
 parser.add_argument('--batch-id', type=str, help='Batch ID for status/download modes')
 parser.add_argument('--model', type=str, required=True, help='OpenAI model to use')
+parser.add_argument('--prompt-type', type=str, choices=['positive', 'negative', 'both'], default='both',
+                    help='Which prompt types to use (default: both)')
 parser.add_argument('--output-folder', type=str, default='/Volumes/Samsung PSSD T7 Media/data/ouput/sts_db',
                     help='Path to output folder (default: /Volumes/Samsung PSSD T7 Media/data/ouput/sts_db)')
 args = parser.parse_args()
+
 
 # Create output directories
 os.makedirs(os.path.join(args.output_folder, 'logs'), exist_ok=True)
@@ -49,21 +52,24 @@ hard_negative_prompts = df[df['Prompt type'] == 'Hard negative']
 def create_batch_request(custom_id, row, text_input):
     """Create a single batch request entry."""
     prompt_instruction = row['Prompt']
+    prompt_type = row['Prompt type']
     
-    system_content = get_system_prompt(prompt_instruction)
+    system_content = get_system_prompt(prompt_instruction, prompt_type)
     
+    body = {
+        "model": args.model,
+        "messages": [
+            {"role": "system", "content": system_content},
+            {"role": "user", "content": text_input}
+        ],
+        "temperature": 0.7
+    }
+
     return {
         "custom_id": custom_id,
         "method": "POST",
         "url": "/v1/chat/completions",
-        "body": {
-            "model": args.model,
-            "messages": [
-                {"role": "system", "content": system_content},
-                {"role": "user", "content": text_input}
-            ],
-            "temperature": 0.7
-        }
+        "body": body
     }
 
 
@@ -84,11 +90,17 @@ def create_batch():
     # Create JSONL file with all requests in a temp location first
     requests = []
     for idx, input_sentence in enumerate(sentences, 1):
-        # Alternate between Positive and Hard negative
-        if idx % 2 == 1:
+        # Select prompt type
+        if args.prompt_type == 'positive':
             row = positive_prompts.sample(1).iloc[0]
-        else:
+        elif args.prompt_type == 'negative':
             row = hard_negative_prompts.sample(1).iloc[0]
+        else:
+            # Alternate between Positive and Hard negative
+            if idx % 2 == 1:
+                row = positive_prompts.sample(1).iloc[0]
+            else:
+                row = hard_negative_prompts.sample(1).iloc[0]
         
         custom_id = f"request-{idx}"
         request = create_batch_request(custom_id, row, input_sentence)
@@ -135,7 +147,14 @@ def create_batch():
         json.dump(metadata, f)
     
     prompt_version = get_system_prompt_version()
-    logger.info(f"Batch created | BATCH_ID={batch.id} | STATUS={batch.status} | SYSTEM_PROMPT={prompt_version} | MODEL={args.model}")
+    logger.info(
+        "Batch created | BATCH_ID=%s | STATUS=%s | SYSTEM_PROMPT=%s | MODEL=%s | PROMPT_TYPE=%s",
+        batch.id,
+        batch.status,
+        prompt_version,
+        args.model,
+        args.prompt_type,
+    )
     logger.info(f"Batch files saved | DIR={batch_dir}")
     logger.info(f"Run with --mode status --batch-id {batch.id} to check progress")
     

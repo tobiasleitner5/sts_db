@@ -14,9 +14,12 @@ parser.add_argument('--data-folder', type=str, required=True, help='Path to fold
 parser.add_argument('--filename-filter', type=str, default=None, help='Substring to filter filenames')
 parser.add_argument('--num-sentences', type=int, default=500, help='Number of sentences to process (default: 500)')
 parser.add_argument('--model', type=str, required=True, help='OpenAI model to use')
+parser.add_argument('--prompt-type', type=str, choices=['positive', 'negative', 'both'], default='both',
+                    help='Which prompt types to use (default: both)')
 parser.add_argument('--output-folder', type=str, default='/Volumes/Samsung PSSD T7 Media/data/ouput/sts_db',
                     help='Path to output folder (default: /Volumes/Samsung PSSD T7 Media/data/ouput/sts_db)')
 args = parser.parse_args()
+
 
 # Create output directories
 os.makedirs(os.path.join(args.output_folder, 'logs/sync'), exist_ok=True)
@@ -49,7 +52,7 @@ def generate_sts_pair(row, text_input):
     prompt_instruction = row['Prompt']
     prompt_type = row['Prompt type']
 
-    system_content = get_system_prompt(prompt_instruction)
+    system_content = get_system_prompt(prompt_instruction, prompt_type)
 
     logger.info(f"PROMPT_TYPE={prompt_type} | INSTRUCTION={prompt_instruction[:80]}...")
     logger.info(f"INPUT={text_input[:100]}...")
@@ -61,7 +64,7 @@ def generate_sts_pair(row, text_input):
                 {"role": "system", "content": system_content},
                 {"role": "user", "content": text_input}
             ],
-            temperature=0.7 # Slight randomness helps with STS diversity
+            temperature=0.7  # Slight randomness helps with STS diversity
         )
         
         # Parse the response to ensure it's valid JSON
@@ -104,11 +107,17 @@ total_output_tokens = 0
 for idx, input_sentence in enumerate(sentences, 1):
     logger.info(f"--- Processing {idx}/{len(sentences)} ---")
     
-    # Alternate between Positive and Hard negative
-    if idx % 2 == 1:
+    # Select prompt type
+    if args.prompt_type == 'positive':
         row = positive_prompts.sample(1).iloc[0]
-    else:
+    elif args.prompt_type == 'negative':
         row = hard_negative_prompts.sample(1).iloc[0]
+    else:
+        # Alternate between Positive and Hard negative
+        if idx % 2 == 1:
+            row = positive_prompts.sample(1).iloc[0]
+        else:
+            row = hard_negative_prompts.sample(1).iloc[0]
     
     output, input_tokens, output_tokens = generate_sts_pair(row, input_sentence)
     total_input_tokens += input_tokens
