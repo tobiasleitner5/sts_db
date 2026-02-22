@@ -8,7 +8,7 @@ This project generates sentence pairs for training STS models by:
 
 1. **Extracting sentences** from gzipped CSV files (first sentence from each article body)
 2. **Applying diverse prompts** that alternate between positive (paraphrase) and hard negative (contradicting) transformations
-3. **Generating output sentences** using an OpenAI chat model
+3. **Generating output sentences** using the OpenAI Responses API
 4. **Saving results** in JSONL format for downstream training
 
 ## Features
@@ -17,6 +17,8 @@ This project generates sentence pairs for training STS models by:
 - Alternating between positive and hard negative prompt types
 - Configurable number of sentences to process
 - Filename filtering for targeted data extraction
+- Uses the OpenAI Responses API for generation
+- Adds `reasoning={"effort":"medium"}` automatically when `--model gpt-5.2` is selected
 - Comprehensive logging with token usage tracking
 - Support for both real-time and batch processing
 
@@ -69,7 +71,7 @@ python3 main_sync.py \
 
 ## Batch Processing (`main_batch.py`)
 
-For large-scale processing with **50% cost savings**. The OpenAI Batch API processes requests within 24 hours at half the price.
+For large-scale processing with **50% cost savings**. The OpenAI Batch API processes requests within 24 hours at half the price. This project submits batch requests to the `/v1/responses` endpoint.
 
 ### How It Works
 

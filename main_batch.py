@@ -58,17 +58,19 @@ def create_batch_request(custom_id, row, text_input):
     
     body = {
         "model": args.model,
-        "messages": [
+        "input": [
             {"role": "system", "content": system_content},
             {"role": "user", "content": text_input}
         ],
         "temperature": 0.7
     }
+    if args.model == "gpt-5.2":
+        body["reasoning"] = {"effort": "medium"}
 
     return {
         "custom_id": custom_id,
         "method": "POST",
-        "url": "/v1/chat/completions",
+        "url": "/v1/responses",
         "body": body
     }
 
@@ -208,6 +210,26 @@ def download_results(batch_id):
     results_database = []
     total_input_tokens = 0
     total_output_tokens = 0
+
+    def extract_output_text(response_body):
+        if isinstance(response_body, dict) and response_body.get("output_text"):
+            return response_body["output_text"]
+        output_items = response_body.get("output", []) if isinstance(response_body, dict) else []
+        parts = []
+        for item in output_items:
+            if item.get("type") != "message":
+                continue
+            for content in item.get("content", []):
+                if content.get("type") in ("output_text", "text") and "text" in content:
+                    parts.append(content["text"])
+        return "".join(parts)
+
+    def extract_usage(usage):
+        if not isinstance(usage, dict):
+            return 0, 0
+        input_tokens = usage.get("input_tokens", usage.get("prompt_tokens", 0))
+        output_tokens = usage.get("output_tokens", usage.get("completion_tokens", 0))
+        return input_tokens, output_tokens
     
     for line in result_content.strip().split('\n'):
         result = json.loads(line)
@@ -215,7 +237,7 @@ def download_results(batch_id):
         
         if result['response']['status_code'] == 200:
             response_body = result['response']['body']
-            content = response_body['choices'][0]['message']['content']
+            content = extract_output_text(response_body)
             
             try:
                 parsed_result = json.loads(content)
@@ -229,9 +251,10 @@ def download_results(batch_id):
                 results_database.append(parsed_result)
                 
                 # Track tokens
-                usage = response_body['usage']
-                total_input_tokens += usage['prompt_tokens']
-                total_output_tokens += usage['completion_tokens']
+                usage = response_body.get('usage', {})
+                input_tokens, output_tokens = extract_usage(usage)
+                total_input_tokens += input_tokens
+                total_output_tokens += output_tokens
                 
             except json.JSONDecodeError as e:
                 logger.error(f"JSON parse error | ID={custom_id} | ERROR={e}")

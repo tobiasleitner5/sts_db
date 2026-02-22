@@ -58,17 +58,21 @@ def generate_sts_pair(row, text_input):
     logger.info(f"INPUT={text_input[:100]}...")
 
     try:
-        response = client.chat.completions.create(
-            model=args.model,
-            messages=[
+        request_kwargs = {
+            "model": args.model,
+            "input": [
                 {"role": "system", "content": system_content},
                 {"role": "user", "content": text_input}
             ],
-            temperature=0.7  # Slight randomness helps with STS diversity
-        )
+            "temperature": 0.7  # Slight randomness helps with STS diversity
+        }
+        if args.model == "gpt-5.2":
+            request_kwargs["reasoning"] = {"effort": "medium"}
+
+        response = client.responses.create(**request_kwargs)
         
         # Parse the response to ensure it's valid JSON
-        result = response.choices[0].message.content
+        result = response.output_text
         parsed_result = json.loads(result)
         
         # Add prompt metadata to the result
@@ -77,8 +81,8 @@ def generate_sts_pair(row, text_input):
         parsed_result['input_sentence'] = text_input
         
         # Extract token usage
-        input_tokens = response.usage.prompt_tokens
-        output_tokens = response.usage.completion_tokens
+        input_tokens = getattr(response.usage, "input_tokens", 0) or getattr(response.usage, "prompt_tokens", 0)
+        output_tokens = getattr(response.usage, "output_tokens", 0) or getattr(response.usage, "completion_tokens", 0)
         
         logger.info(f"OUTPUT={parsed_result.get('output_sentence', '')[:100]}...")
         return parsed_result, input_tokens, output_tokens
