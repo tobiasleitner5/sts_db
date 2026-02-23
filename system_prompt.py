@@ -2,7 +2,7 @@
 import os
 import re
 
-VERSION = 'v5'
+VERSION = 'v6'
 
 def get_system_prompt(prompt_instruction: str, prompt_type: str) -> str:
     """Build the system prompt for STS pair generation.
