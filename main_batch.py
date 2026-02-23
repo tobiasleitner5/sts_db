@@ -49,6 +49,59 @@ positive_prompts = df[df['Prompt type'] == 'Positive']
 hard_negative_prompts = df[df['Prompt type'] == 'Hard negative']
 
 
+DEFAULT_TRACKING_COLUMNS = [
+    "batch_id",
+    "filename_filter",
+    "num_sentences",
+    "created_at",
+    "downloaded",
+    "system_prompt_version",
+]
+
+
+def _read_tracking_header(tracking_file):
+    if not os.path.exists(tracking_file):
+        return []
+    with open(tracking_file, 'r') as f:
+        first_line = f.readline().strip()
+    if not first_line:
+        return []
+    return first_line.split(';')
+
+
+def _normalize_tracking_file(tracking_file):
+    if not os.path.exists(tracking_file):
+        return
+    with open(tracking_file, 'r') as f:
+        lines = [line.rstrip('\n') for line in f]
+    if not lines:
+        return
+    rows = [line.split(';') for line in lines if line != ""]
+    if not rows:
+        return
+    header = rows[0]
+    max_fields = max(len(r) for r in rows)
+    if max_fields <= len(header) and all(len(r) == len(header) for r in rows[1:]):
+        return
+    new_header = header[:]
+    if len(new_header) < max_fields:
+        if len(new_header) == 5 and max_fields == 6 and "system_prompt_version" not in new_header:
+            new_header.append("system_prompt_version")
+        else:
+            for i in range(len(new_header), max_fields):
+                new_header.append(f"col_{i+1}")
+    fixed_rows = [new_header]
+    for r in rows[1:]:
+        if len(r) < len(new_header):
+            r = r + [""] * (len(new_header) - len(r))
+        elif len(r) > len(new_header):
+            r = r[:len(new_header)]
+        fixed_rows.append(r)
+    with open(tracking_file, 'w') as f:
+        for r in fixed_rows:
+            f.write(";".join(r) + "\n")
+
+
 def create_batch_request(custom_id, row, text_input):
     """Create a single batch request entry."""
     prompt_instruction = row['Prompt']
@@ -163,11 +216,25 @@ def create_batch():
     
     # Append batch job info to tracking file
     tracking_file = os.path.join(args.output_folder, "output/batch_jobs.csv")
-    write_header = not os.path.exists(tracking_file)
+    tracking_columns = _read_tracking_header(tracking_file)
+    if not tracking_columns:
+        tracking_columns = DEFAULT_TRACKING_COLUMNS[:]
+        write_header = True
+    else:
+        write_header = False
+    row_values = {
+        "batch_id": batch.id,
+        "filename_filter": args.filename_filter,
+        "num_sentences": args.num_sentences,
+        "created_at": pd.Timestamp.now().isoformat(),
+        "downloaded": "no",
+        "system_prompt_version": prompt_version,
+    }
     with open(tracking_file, 'a') as f:
         if write_header:
-            f.write("batch_id;filename_filter;num_sentences;created_at;downloaded;system_prompt_version\n")
-        f.write(f"{batch.id};{args.filename_filter};{args.num_sentences};{pd.Timestamp.now().isoformat()};no;{prompt_version}\n")
+            f.write(";".join(tracking_columns) + "\n")
+        row = [str(row_values.get(col, "")) for col in tracking_columns]
+        f.write(";".join(row) + "\n")
     
     logger.info(f"Batch info appended | FILE={tracking_file}")
     
@@ -276,6 +343,7 @@ def download_results(batch_id):
     # Mark batch as downloaded in tracking file
     tracking_file = os.path.join(args.output_folder, "output/batch_jobs.csv")
     if os.path.exists(tracking_file):
+        _normalize_tracking_file(tracking_file)
         tracking_df = pd.read_csv(tracking_file, sep=';')
         tracking_df.loc[tracking_df['batch_id'] == batch_id, 'downloaded'] = 'yes'
         tracking_df.to_csv(tracking_file, sep=';', index=False)
