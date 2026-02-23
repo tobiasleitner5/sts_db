@@ -75,7 +75,6 @@ def generate_sts_pair(row, text_input):
         # Parse the response to ensure it's valid JSON
         result = response.output_text
         parsed_result = json.loads(result)
-        
         # Add prompt metadata to the result
         parsed_result['prompt_type'] = prompt_type
         parsed_result['prompt_instruction'] = prompt_instruction

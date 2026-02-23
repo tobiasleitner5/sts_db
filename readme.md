@@ -2,6 +2,10 @@
 
 A tool for generating Semantic Textual Similarity (STS) sentence pairs using an OpenAI chat model. The generator creates positive paraphrases and hard negative examples from input sentences extracted from gzipped CSV files.
 
+## Python Version Requirement (Important)
+
+This project requires **Python 3.13**. Using Python 3.14+ will break spaCy due to upstream incompatibilities.
+
 ## Overview
 
 This project generates sentence pairs for training STS models by:
@@ -27,6 +31,9 @@ This project generates sentence pairs for training STS models by:
 ```bash
 pip install -r requirements.txt
 ```
+```bash
+python3 -m spacy download en_core_web_sm
+```
 
 ## Files
 
@@ -37,7 +44,6 @@ pip install -r requirements.txt
 | `main_batch_validation.py` | Validation script — runs every prompt on N sentences for comparison |
 | `utils.py` | Utility functions for data extraction |
 | `system_prompt.py` | Central system prompt builder (reads from template file) |
-| `entity_swapper_gpt.py` | Batch entity swapper for existing STS outputs |
 | `prompts/prompts.csv` | Pool of prompts for positive and hard negative generation |
 | `prompts/system_prompts/` | System prompt template files |
 
@@ -190,58 +196,6 @@ Results are stored under `<output_folder>/validation/<model>/<system_prompt_vers
 
 ---
 
-## Entity Swapper (`entity_swapper_gpt.py`)
-
-Swaps named entities in an existing `sts_database.jsonl` output using the Batch API while preserving meaning. The model identifies protected terms (e.g., “central bank”) and keeps them unchanged. It writes a new JSONL and an XLSX in the same directory.
-
-### Step 1: Create and Submit Swap Batch
-
-```bash
-python3 entity_swapper_gpt.py \
-  --api-key "sk-your-openai-api-key" \
-  --input-file "/path/to/sts_database.jsonl" \
-  --mode create
-```
-
-### Step 2: Check Status
-
-```bash
-python3 entity_swapper_gpt.py \
-  --api-key "sk-your-openai-api-key" \
-  --input-file "/path/to/sts_database.jsonl" \
-  --mode status \
-  --batch-id "batch_abc123"
-```
-
-### Step 3: Download Results
-
-```bash
-python3 entity_swapper_gpt.py \
-  --api-key "sk-your-openai-api-key" \
-  --input-file "/path/to/sts_database.jsonl" \
-  --mode download \
-  --batch-id "batch_abc123"
-```
-
-### Swapper Arguments
-
-| Argument | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `--api-key` | Yes | - | Your OpenAI API key |
-| `--input-file` | Yes | - | Path to `sts_database.jsonl` |
-| `--mode` | No | create | Mode: `create`, `status`, or `download` |
-| `--batch-id` | Yes** | - | Batch ID for status/download modes |
-| `--model` | No | gpt-5.2 | OpenAI model to use |
-| `--output-file` | No | `<input>_swapped.jsonl` | Output JSONL path |
-
-\** Required only for `status` and `download` modes
-
-Outputs:
-- `<input>_swapped.jsonl`
-- `<input>_swapped.xlsx`
-
----
-
 ## Output Format
 
 Results are saved to `<output_folder>/output/<batch_id>/sts_database.jsonl` with one JSON object per line:
@@ -293,6 +247,7 @@ All scripts log to both console and their respective log file. Logs include time
 ## System Prompt Versions
 
 System prompt templates are stored in `prompts/system_prompts/`. For v5 and later, the prompts are split by type and follow `system_prompt_positive_vX.txt` and `system_prompt_negative_vX.txt`. The active version is configured in `system_prompt.py`.
+Deprecated prompts that use entity replacement are stored in `prompts/system_prompts/deprecated/` (currently v3 and v4).
 
 ### v1 — Baseline
 

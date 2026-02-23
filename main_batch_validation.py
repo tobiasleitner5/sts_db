@@ -230,7 +230,6 @@ def download_results(batch_id):
 
             try:
                 parsed_result = json.loads(content)
-
                 # Add metadata
                 meta = metadata[custom_id]
                 parsed_result['input_sentence'] = meta['input_sentence']

@@ -309,7 +309,6 @@ def download_results(batch_id):
             
             try:
                 parsed_result = json.loads(content)
-                
                 # Add metadata
                 meta = metadata[custom_id]
                 parsed_result['input_sentence'] = meta['input_sentence']
@@ -336,8 +335,13 @@ def download_results(batch_id):
     with open(output_file, 'w') as f:
         for entry in results_database:
             f.write(json.dumps(entry) + '\n')
+
+    # Save results as Excel
+    excel_file = os.path.join(batch_output_dir, 'sts_database.xlsx')
+    results_df = pd.DataFrame(results_database)
+    results_df.to_excel(excel_file, index=False)
     
-    logger.info(f"Results saved | TOTAL_ENTRIES={len(results_database)} | OUTPUT_FILE={output_file}")
+    logger.info(f"Results saved | TOTAL_ENTRIES={len(results_database)} | JSONL={output_file} | EXCEL={excel_file}")
     logger.info(f"Token usage | INPUT={total_input_tokens} | OUTPUT={total_output_tokens} | TOTAL={total_input_tokens + total_output_tokens}")
     
     # Mark batch as downloaded in tracking file
